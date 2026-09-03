@@ -92,7 +92,7 @@ require("bokeh").setup {
   amount = 0.7,       -- 最も薄い段でどこまで溶かすか (0..1)
   curve = "linear",   -- "linear" | "ease_in" | "ease_out" | fun(t: number): number
   target = nil,       -- 溶かす先の色。nil なら `Normal` の背景色
-  from = "LineNr",    -- フェードの起点となるハイライトグループ
+  from = "LineNr",    -- フェードの起点となるハイライトグループ。{ above = …, below = … } も可
   standalone = false, -- 自分で 'statuscolumn' を設定する
   enabled = true,     -- 有効な状態で始める
   redraw = "auto",    -- 'relativenumber' 無しでもフェードを追従させる
@@ -109,6 +109,21 @@ require("bokeh").setup { bands = 8, distance = 6, amount = 0.85, curve = "ease_i
 一気に落とし、`ease_out` はカーソルのすぐ隣から強く落とします。どちらも合わない
 場合は `fun(t: number): number` を渡してください。`t` は段を通して 0..1 で動き、
 戻り値が `amount` に掛かります。
+
+### カーソルの上と下で色を変える
+
+`v:relnum` は距離であって向きを持たないので、既定ではカーソルの上下は同じように
+薄くなります。向きごとにグループを指定すると塗り分けられます。
+
+```lua
+require("bokeh").setup {
+  from = { above = "LineNrAbove", below = "LineNrBelow" },
+}
+```
+
+`BokehFadeN` の代わりに `BokehFadeAbove1` 〜 と `BokehFadeBelow1` 〜 が作られ、
+それぞれの向きの色を起点にフェードします。カーソル行の取得は描画する 1 行あたり
+約 57 ns なので、画面全体でも 3 µs 程度です。
 
 ## 一時的に無効にする
 
@@ -140,9 +155,10 @@ vim.w[win].bokeh_disable = true     -- そのウィンドウだけ
 ## ハイライトグループ
 
 `BokehFade1` 〜 `BokehFade{bands}` で、段 1 がカーソルに最も近く、`bands` が最も
-薄い段です。`from` (既定は `LineNr`) から他の属性を保ったまま作られ、
-`ColorScheme` のたびに計算し直すので、起動時の色に固定されずカラースキームに
-追従します。
+薄い段です。`from` を向きごとに指定した場合は `BokehFadeAbove1` 〜 と
+`BokehFadeBelow1` 〜 になります。`from` (既定は `LineNr`) から他の属性を保ったまま
+作られ、`ColorScheme` のたびに計算し直すので、起動時の色に固定されずカラースキーム
+に追従します。
 
 ブレンドでは作れない色にしたい場合は、後から上書きしてください。
 
@@ -172,9 +188,8 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 - 絶対行番号と相対行番号を並べて表示すること。それには
   [line-numbers.nvim](https://github.com/shrynx/line-numbers.nvim) か
   statuscol.nvim を使ってください。bokeh.nvim は色を付けるだけです。
-- カーソルの上と下でフェードを変えること。`v:relnum` はカーソル行からの**距離**で
-  あって向きを持たないので、これを実現するには描画する行ごとにカーソル位置を引く
-  必要があります。
+- マーク、折り畳み、サイン、折り返しインジケータ。いずれもフェードではなく
+  statuscolumn の担当です。
 
 ## ライセンス
 

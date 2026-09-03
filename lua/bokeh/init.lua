@@ -22,7 +22,8 @@ local color = require "bokeh.color"
 
 local M = {}
 
---- Prefix of the generated highlight groups: `BokehFade1` .. `BokehFade{bands}`.
+--- Prefix of the generated highlight groups: `BokehFade1` .. `BokehFade{bands}`,
+--- or `BokehFadeAbove1` / `BokehFadeBelow1` .. when `from` names two groups.
 --- Band 1 is nearest the cursor, `bands` is the most faded.
 local GROUP = "BokehFade"
 
@@ -32,10 +33,14 @@ local GROUP = "BokehFade"
 ---@field amount? number       How far the deepest band is blended, 0..1 (default: 0.7).
 ---@field curve? bokeh.Curve   Distribution of the steps (default: "linear").
 ---@field target? string|integer  Colour to fade toward (default: `Normal` background).
----@field from? string         Highlight group the fade starts from (default: "LineNr").
+---@field from? string|bokeh.Directional  Group(s) the fade starts from (default: "LineNr").
 ---@field standalone? boolean  Set |'statuscolumn'| ourselves (default: false).
 ---@field enabled? boolean     Start enabled (default: true).
 ---@field redraw? "auto"|boolean  Keep the fade in sync without |'relativenumber'| (default: "auto").
+
+---@class bokeh.Directional
+---@field above string  Highlight group for lines above the cursor.
+---@field below string  Highlight group for lines below the cursor.
 
 ---@alias bokeh.Curve "linear"|"ease_in"|"ease_out"|fun(t: number): number
 
@@ -67,6 +72,12 @@ local state = {
   step = 1,
   --- 'statuscolumn' as it was before standalone mode took over.
   saved_stc = nil,
+  --- True when `from` names a group per direction.
+  directional = false,
+  --- Ready-made `%#Group#` items indexed by band, so the render path does no
+  --- string building at all. Directional configs fill `items.above` /
+  --- `items.below` instead of the array part.
+  items = {},
 }
 
 --- Named easings for `curve`. `t` runs 0..1 across the bands and the result
@@ -109,17 +120,59 @@ local function resolve_target()
   return vim.o.background == "dark" and 0x000000 or 0xffffff
 end
 
----(Re-)register `BokehFade1` .. `BokehFade{bands}`.
+---The band sets to build, one per source group.
+---
+--- A plain `from` yields a single unnamed set; a directional one yields
+--- "Above" and "Below".
+---@return { suffix: string, source: string, key: string? }[]
+local function band_sets()
+  if type(config.from) == "table" then
+    return {
+      { suffix = "Above", source = config.from.above, key = "above" },
+      { suffix = "Below", source = config.from.below, key = "below" },
+    }
+  end
+  return { { suffix = "", source = config.from } }
+end
+
+---(Re-)register the fade highlight groups and the items that name them.
 ---
 --- Called at setup and again on every |ColorScheme|, so the bands track the
 --- colorscheme instead of freezing at the colours present at startup.
 local function resolve_highlights()
-  local from = color.attrs(config.from)
-  state.usable = vim.o.termguicolors and from ~= nil and from.fg ~= nil
+  local sets = band_sets()
+  state.directional = #sets > 1
+  state.items = {}
+
+  local attrs_of = {}
+  state.usable = vim.o.termguicolors
+  for _, set in ipairs(sets) do
+    local from = color.attrs(set.source)
+    attrs_of[set.suffix] = from
+    if not (from and from.fg) then state.usable = false end
+  end
+
+  -- Build the `%#Group#` items up front. The render path then does a table
+  -- lookup instead of concatenating a string for every screen line.
+  for _, set in ipairs(sets) do
+    local items = {}
+    for i = 1, config.bands do
+      items[i] = "%#" .. GROUP .. set.suffix .. i .. "#"
+    end
+    if set.key then
+      state.items[set.key] = items
+    else
+      state.items = items
+    end
+  end
 
   if not state.usable then
-    for i = 1, config.bands do
-      vim.api.nvim_set_hl(0, GROUP .. i, { link = config.from })
+    -- Nothing to blend, so link the bands to their source and stay out of the
+    -- way rather than rendering a wrong colour.
+    for _, set in ipairs(sets) do
+      for i = 1, config.bands do
+        vim.api.nvim_set_hl(0, GROUP .. set.suffix .. i, { link = set.source })
+      end
     end
     return
   end
@@ -127,12 +180,15 @@ local function resolve_highlights()
   local target = resolve_target()
   local curve = type(config.curve) == "function" and config.curve or curves[config.curve] or curves.linear
 
-  for i = 1, config.bands do
-    -- Other attributes of the source group (bold, italic, …) are kept so a
-    -- faded number still looks like a line number.
-    local attrs = vim.deepcopy(from)
-    attrs.fg = color.blend(from.fg, target, curve(i / config.bands) * config.amount)
-    vim.api.nvim_set_hl(0, GROUP .. i, attrs)
+  for _, set in ipairs(sets) do
+    local from = attrs_of[set.suffix]
+    for i = 1, config.bands do
+      -- Other attributes of the source group (bold, italic, …) are kept so a
+      -- faded number still looks like a line number.
+      local attrs = vim.deepcopy(from)
+      attrs.fg = color.blend(from.fg, target, curve(i / config.bands) * config.amount)
+      vim.api.nvim_set_hl(0, GROUP .. set.suffix .. i, attrs)
+    end
   end
 end
 
@@ -215,7 +271,14 @@ end
 function M.hl(args)
   if not active(args) then return "" end
   local band = M.band(args and args.relnum or vim.v.relnum)
-  return band and ("%#" .. GROUP .. band .. "#") or ""
+  if not band then return "" end
+  if not state.directional then return state.items[band] end
+  -- |v:relnum| is a distance and says nothing about direction, so the cursor
+  -- line has to be read. It costs ~57ns, which is affordable once per drawn
+  -- line; the alternative, caching it per redraw, buys little and can go stale.
+  local lnum = args and args.lnum or vim.v.lnum
+  local cursor = vim.api.nvim_win_get_cursor(args and args.win or 0)[1]
+  return lnum > cursor and state.items.below[band] or state.items.above[band]
 end
 
 ---Render the line number for the line currently being drawn, faded.
@@ -297,6 +360,18 @@ function M.toggle()
     M.enable()
   end
   return state.enabled
+end
+
+---Recompute the fade bands from the current colours.
+---
+--- Already done on every |ColorScheme|. Call it by hand when the groups named
+--- by `from` are themselves defined by your config: `:colorscheme` clears every
+--- highlight group, and the order autocommands run in decides whether they are
+--- back by the time the bands are rebuilt. Redefine them, then refresh.
+function M.refresh()
+  if not state.ready then return end
+  resolve_highlights()
+  redraw()
 end
 
 ---Return the resolved configuration.

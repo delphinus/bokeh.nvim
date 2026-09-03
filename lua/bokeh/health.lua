@@ -31,23 +31,35 @@ function M.check()
     )
   end
 
-  local from = require("bokeh.color").attrs(config.from)
-  if from and from.fg then
-    ok(("`%s` resolves to %s"):format(config.from, require("bokeh.color").hex(from.fg)))
-  else
-    warn(("`%s` has no foreground colour to fade from"):format(config.from), {
-      "Pick another group with `from`, or set the colour in your colorscheme.",
-    })
-  end
+  local color = require "bokeh.color"
+  -- A directional `from` produces one band set per direction; a plain one a
+  -- single unnamed set.
+  local sets = type(config.from) == "table" and { Above = config.from.above, Below = config.from.below }
+    or { [""] = config.from }
 
-  local registered = 0
-  for i = 1, config.bands do
-    if not vim.tbl_isempty(vim.api.nvim_get_hl(0, { name = "BokehFade" .. i })) then registered = registered + 1 end
-  end
-  if registered == config.bands then
-    ok(("%d fade bands registered (BokehFade1..%d)"):format(registered, config.bands))
-  else
-    warn(("only %d of %d fade bands are registered; has setup() run?"):format(registered, config.bands))
+  for suffix, source in pairs(sets) do
+    local from = color.attrs(source)
+    if from and from.fg then
+      ok(("`%s` resolves to %s"):format(source, color.hex(from.fg)))
+    else
+      warn(("`%s` has no foreground colour to fade from"):format(source), {
+        "Pick another group with `from`, or set the colour in your colorscheme.",
+      })
+    end
+
+    local registered = 0
+    for i = 1, config.bands do
+      if not vim.tbl_isempty(vim.api.nvim_get_hl(0, { name = "BokehFade" .. suffix .. i })) then
+        registered = registered + 1
+      end
+    end
+    if registered == config.bands then
+      ok(("%d fade bands registered (BokehFade%s1..%d)"):format(registered, suffix, config.bands))
+    else
+      warn(
+        ("only %d of %d BokehFade%s bands are registered; has setup() run?"):format(registered, config.bands, suffix)
+      )
+    end
   end
 
   if not (vim.wo.number or vim.wo.relativenumber) then

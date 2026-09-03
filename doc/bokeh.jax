@@ -39,7 +39,8 @@ bokeh.nvim は、カーソル行からの距離に応じて行番号を段階的
 持っているものに任せる。
 
 フェードは |v:relnum| で決まる。これはカーソル行からの距離であって向きを持たな
-いので、カーソルの上と下は同じように薄くなる。
+いので、既定ではカーソルの上と下は同じように薄くなる。|bokeh-config-from| で塗り
+分けられる。
 
 ==============================================================================
 必要なもの						    *bokeh-requirements*
@@ -147,7 +148,14 @@ target ~
 							     *bokeh-config-from*
 from ~
 		フェードの起点となるハイライトグループ。太字や斜体などの他の
-		属性はすべての段に引き継がれる。既定値: "LineNr"。
+		属性はすべての段に引き継がれる。
+
+		`{ above = "GroupA", below = "GroupB" }` の形で渡すと向きごと
+		に塗り分ける。`BokehFadeN` の代わりに `BokehFadeAbove1` 〜 と
+		`BokehFadeBelow1` 〜 が作られ、それぞれの色を起点にフェードす
+		る。|v:relnum| は向きを持たないので描画する行ごとにカーソル行
+		を読む。1 行あたり約 57 ns、画面全体で 3 µs 程度。
+		既定値: "LineNr"。
 
 						       *bokeh-config-standalone*
 standalone ~
@@ -237,7 +245,8 @@ g:bokeh_disable  b:bokeh_disable  w:bokeh_disable
 BokehFade1 .. BokehFade{bands}
 		フェードの段ごとに 1 つ。段 1 がカーソルに最も近く、`bands` が
 		最も薄い。|bokeh-config-from| から作られ、|ColorScheme| のたび
-		に計算し直される。
+		に計算し直される。|bokeh-config-from| を向きごとに指定した場合
+		は `BokehFadeAbove1` 〜 と `BokehFadeBelow1` 〜 になる。
 
 		ブレンドでは作れない色にしたい場合は、後から上書きする: >lua
 
@@ -268,8 +277,7 @@ bokeh.nvim が自分で再描画を促す。|bokeh-config-redraw| で制御で�
 
 - 絶対行番号と相対行番号を並べて表示すること。それには statuscol.nvim か
   line-numbers.nvim を使うこと。bokeh.nvim は色を付けるだけである。
-- カーソルの上と下でフェードを変えること。|v:relnum| はカーソル行からの距離で
-  あって向きを持たないので、これには描画する行ごとにカーソル位置を引く必要があ
-  る。
+- マーク、折り畳み、サイン、折り返しインジケータ。いずれもフェードではなく
+  statuscolumn の担当である。
 
 vim:tw=78:ts=8:noet:ft=help:norl:

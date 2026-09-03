@@ -152,6 +152,52 @@ test("hl leaves the cursor line to CursorLineNr", function()
 end)
 
 -- ============================================================================
+-- Directional `from`: a different hue above and below the cursor
+-- ============================================================================
+
+test("a directional `from` builds one band set per direction", function()
+  vim.api.nvim_set_hl(0, "BokehTestAbove", { fg = 0x8080ff })
+  vim.api.nvim_set_hl(0, "BokehTestBelow", { fg = 0x80ff80 })
+  bokeh.setup { from = { above = "BokehTestAbove", below = "BokehTestBelow" } }
+
+  for i = 1, 5 do
+    local above = vim.api.nvim_get_hl(0, { name = "BokehFadeAbove" .. i })
+    local below = vim.api.nvim_get_hl(0, { name = "BokehFadeBelow" .. i })
+    assert_eq(type(above.fg), "number", "BokehFadeAbove" .. i .. " exists")
+    assert_eq(type(below.fg), "number", "BokehFadeBelow" .. i .. " exists")
+    if above.fg == below.fg then
+      fail_count = fail_count + 1
+      print(("FAIL: band %d is the same colour above and below"):format(i))
+      return
+    end
+  end
+  pass_count = pass_count + 1
+end)
+
+test("the direction is read from the drawn line against the cursor", function()
+  local buf = vim.api.nvim_create_buf(false, true)
+  local lines = {}
+  for i = 1, 40 do
+    lines[i] = "line " .. i
+  end
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_win_set_buf(0, buf)
+  vim.api.nvim_win_set_cursor(0, { 20, 0 })
+  local win = vim.api.nvim_get_current_win()
+
+  -- Same distance either side of the cursor, opposite directions.
+  assert_eq(bokeh.hl(args { win = win, lnum = 17, relnum = 3 }), "%#BokehFadeAbove2#", "three lines above")
+  assert_eq(bokeh.hl(args { win = win, lnum = 23, relnum = 3 }), "%#BokehFadeBelow2#", "three lines below")
+  assert_eq(bokeh.hl(args { win = win, lnum = 20, relnum = 0 }), "", "the cursor line stays bare")
+end)
+
+test("a plain `from` keeps the undirected group names", function()
+  bokeh.setup()
+  assert_eq(bokeh.hl(args { relnum = 3 }), "%#BokehFade2#", "no Above/Below suffix")
+  assert_eq(vim.tbl_isempty(vim.api.nvim_get_hl(0, { name = "BokehFade1" })), false, "the plain bands are back")
+end)
+
+-- ============================================================================
 -- segment: the rendered number
 -- ============================================================================
 

@@ -40,7 +40,8 @@ That is all it does.  Signs, folds and the layout of the number column stay
 with whoever owns your 'statuscolumn'.
 
 The fade is driven by |v:relnum|, which is the distance from the cursor line.
-It carries no direction, so lines above and below the cursor fade alike.
+It carries no direction, so by default lines above and below the cursor fade
+alike; |bokeh-config-from| can split them.
 
 ==============================================================================
 REQUIREMENTS						    *bokeh-requirements*
@@ -155,6 +156,14 @@ target ~
 from ~
 		Highlight group the fade starts from.  Its other attributes
 		(bold, italic, ...) are carried into every band.
+
+		A table of the form `{ above = "GroupA", below = "GroupB" }`
+		splits the fade by direction: `BokehFadeAbove1` .. and
+		`BokehFadeBelow1` .. are built instead of the plain
+		`BokehFadeN`, each starting from its own colour.  |v:relnum|
+		says nothing about direction, so the cursor line is read on
+		every drawn line; that costs about 57ns, or 3us for a full
+		screen.
 		Default: "LineNr".
 
 						       *bokeh-config-standalone*
@@ -249,6 +258,8 @@ BokehFade1 .. BokehFade{bands}
 		One group per fade step.  Band 1 is nearest the cursor,
 		`bands` is the most faded.  Derived from
 		|bokeh-config-from|, recomputed on every |ColorScheme|.
+		A directional |bokeh-config-from| names them
+		`BokehFadeAbove1` .. and `BokehFadeBelow1` .. instead.
 
 		Override them after the fact for colours the blend cannot
 		produce: >lua
@@ -280,8 +291,7 @@ NON-GOALS						       *bokeh-non-goals*
 
 - Rendering absolute and relative numbers side by side.  Use statuscol.nvim or
   line-numbers.nvim for that; bokeh.nvim only colours.
-- Fading above and below the cursor differently.  |v:relnum| is the distance
-  from the cursor line and carries no direction, so this would need the cursor
-  position on every drawn line.
+- Marks, folds, signs, wrapped-line indicators.  All of those belong to the
+  statuscolumn, not to the fade.
 
 vim:tw=78:ts=8:noet:ft=help:norl:
