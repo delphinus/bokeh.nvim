@@ -1,0 +1,275 @@
+*bokeh.jax*	行番号に被写界深度を
+
+Author: delphinus License: MIT
+
+==============================================================================
+目次								*bokeh-contents*
+
+はじめに						|bokeh-introduction|
+必要なもの						|bokeh-requirements|
+インストール						|bokeh-installation|
+使い方							|bokeh-usage|
+  既にある描画に色を付ける				|bokeh-usage-hl|
+  行番号を描かせる					|bokeh-usage-segment|
+  単体で使う						|bokeh-usage-standalone|
+設定							|bokeh-config|
+コマンド						|bokeh-commands|
+Lua API							|bokeh-api|
+変数							|bokeh-variables|
+ハイライトグループ					|bokeh-highlights|
+'relativenumber'					|bokeh-relativenumber|
+やらないこと						|bokeh-non-goals|
+
+==============================================================================
+はじめに						    *bokeh-introduction*
+
+bokeh.nvim は、カーソル行からの距離に応じて行番号を段階的に背景へ溶かす。これ
+から飛ぼうとしている近くの行はくっきり残り、それ以外は後ろへ退く。
+>
+	  12 │ local color = require "bokeh.color"     ← 薄い
+	   8 │
+	   4 │ function M.band(relnum)
+	   2 │   if relnum <= 0 then
+	   1 │     return nil
+	 142 │   end                                   ← カーソル行
+	   1 │
+	   3 │ end
+<
+やるのはこれだけである。サイン、折り畳み、行番号の並べ方は 'statuscolumn' を
+持っているものに任せる。
+
+フェードは |v:relnum| で決まる。これはカーソル行からの距離であって向きを持たな
+いので、カーソルの上と下は同じように薄くなる。
+
+==============================================================================
+必要なもの						    *bokeh-requirements*
+
+- Neovim 0.10 以降
+- 'termguicolors' (フェードを 24 bit カラーで計算するため)
+- 任意で statuscol.nvim  https://github.com/luukvbaal/statuscol.nvim
+
+==============================================================================
+インストール						    *bokeh-installation*
+
+lazy.nvim の場合: >lua
+
+	{ "delphinus/bokeh.nvim", opts = {} }
+<
+==============================================================================
+使い方								   *bokeh-usage*
+
+bokeh.nvim がどこまで受け持つかで 3 通りある。
+
+------------------------------------------------------------------------------
+既にある描画に色を付ける					*bokeh-usage-hl*
+
+|bokeh.hl()| はハイライト項目を返すだけである。行番号を描くセグメントの前に置け
+ば、そちらの挙動 (statuscol.nvim の桁区切り、`relculright`、行番号列へのサイン
+表示など) をそのまま保てる。 >lua
+
+	local bokeh = require "bokeh"
+	bokeh.setup()
+
+	local builtin = require "statuscol.builtin"
+	require("statuscol").setup {
+	  relculright = true,
+	  segments = {
+	    { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
+	    { text = { bokeh.hl, builtin.lnumfunc }, click = "v:lua.ScLa" },
+	  },
+	}
+<
+------------------------------------------------------------------------------
+行番号を描かせる					   *bokeh-usage-segment*
+
+|bokeh.segment()| は statuscol.nvim の `text` セグメントとしてそのまま使える。
+'number'、'relativenumber'、'numberwidth' は組み込みの行番号列と同じように扱い、
+常に右揃えにする (statuscol.nvim の `relculright = true` 相当)。 >lua
+
+	segments = {
+	  { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
+	  { text = { require("bokeh").segment }, click = "v:lua.ScLa" },
+	}
+<
+------------------------------------------------------------------------------
+単体で使う						*bokeh-usage-standalone*
+
+他のプラグインを使わず、bokeh.nvim が 'statuscolumn' に折り畳み列・サイン列・
+フェードした行番号列を設定する。 >lua
+
+	require("bokeh").setup { standalone = true }
+<
+==============================================================================
+設定								  *bokeh-config*
+
+既定値: >lua
+
+	require("bokeh").setup {
+	  bands = 5,
+	  distance = 12,
+	  amount = 0.7,
+	  curve = "linear",
+	  target = nil,
+	  from = "LineNr",
+	  standalone = false,
+	  enabled = true,
+	  redraw = "auto",
+	}
+<
+							    *bokeh-config-bands*
+bands ~
+		フェードの段数。既定値: 5。
+
+							 *bokeh-config-distance*
+distance ~
+		最も薄い段に到達する、カーソル行からの距離。これより遠い行は
+		すべて同じ段になる。既定値: 12。
+
+							   *bokeh-config-amount*
+amount ~
+		最も薄い段で `target` へどこまで溶かすか。0 (まったく溶かさな
+		い) から 1 (完全に溶け込む) まで。既定値: 0.7。
+
+							    *bokeh-config-curve*
+curve ~
+		段の刻み方。"linear"、"ease_in"、"ease_out"、または関数。
+		"ease_in" はカーソル近くをくっきり保って遠くで一気に落とし、
+		"ease_out" はカーソルのすぐ隣から強く落とす。関数には段を通し
+		て 0..1 で動く `t` が渡り、戻り値が `amount` に掛かる。
+		既定値: "linear"。
+
+							   *bokeh-config-target*
+target ~
+		溶かす先の色。"#rrggbb" または整数で指定する。nil のときは
+		`Normal` の背景色を使い、`Normal` が透過ならば 'background' に
+		従って黒か白にする。既定値: nil。
+
+							     *bokeh-config-from*
+from ~
+		フェードの起点となるハイライトグループ。太字や斜体などの他の
+		属性はすべての段に引き継がれる。既定値: "LineNr"。
+
+						       *bokeh-config-standalone*
+standalone ~
+		セグメントを提供せず、自分で 'statuscolumn' を設定する。
+		既定値: false。
+
+							  *bokeh-config-enabled*
+enabled ~
+		有効な状態で始めるかどうか。既定値: true。
+
+							   *bokeh-config-redraw*
+redraw ~
+		カーソル移動時に 'statuscolumn' の再描画を促すかどうか。
+		"auto" は 'relativenumber' がオフのとき、つまり Neovim が自分
+		では再描画しないときにだけ促す。|bokeh-relativenumber| を参照。
+		既定値: "auto"。
+
+==============================================================================
+コマンド							*bokeh-commands*
+
+									*:Bokeh*
+:Bokeh [on|off|toggle]
+		フェードのオン・オフを切り替える。引数を省略すると切り替え。
+
+==============================================================================
+Lua API								     *bokeh-api*
+
+								 *bokeh.setup()*
+setup({opts})
+		プラグインを初期化する。フェードのハイライトグループを登録し、
+		カラースキームに追従させる。'number' と 'relativenumber' は変
+		更しない。行番号列に何を出すかは利用者の判断のままとする。
+
+								    *bokeh.hl()*
+hl({args})
+		いま描画している行のハイライト項目 (例: `"%#BokehFade3#"`) を
+		返す。カーソル行と、フェードが無効なときは空文字列を返す。
+		{args} は statuscol.nvim がセグメントに渡す引数のテーブル。
+		省略すると |v:relnum| などを直接読む。
+
+							       *bokeh.segment()*
+segment({args})
+		いま描画している行の行番号をフェードさせて描く。
+		|bokeh-usage-segment| を参照。
+
+							  *bokeh.statuscolumn()*
+statuscolumn()
+		|bokeh-config-standalone| が使う 'statuscolumn' の式。
+
+								  *bokeh.band()*
+band({relnum})
+		距離を段の番号に対応させる。カーソル行では nil を返す。
+
+								*bokeh.enable()*
+							       *bokeh.disable()*
+								*bokeh.toggle()*
+							    *bokeh.is_enabled()*
+enable() disable() toggle() is_enabled()
+		フェードを有効化・無効化・切り替えする。`toggle()` は切り替え
+		た後の状態を返す。
+
+		単体モードで無効にすると、`setup()` 前の 'statuscolumn' を復元
+		する。それ以外のモードでは行番号の描画は続き、段の代わりに
+		|hl-LineNr| が使われる (他のプラグインの statuscolumn から自分
+		を外すことはできないため)。
+
+							    *bokeh.get_config()*
+get_config()
+		解決済みの設定のコピーを返す。
+
+==============================================================================
+変数							       *bokeh-variables*
+
+描画する行ごとに参照されるので、設定するとすぐ効く。
+
+							       *g:bokeh_disable*
+							       *b:bokeh_disable*
+							       *w:bokeh_disable*
+g:bokeh_disable  b:bokeh_disable  w:bokeh_disable
+		真のときフェードを適用しない。それぞれ全体、そのバッファ、その
+		ウィンドウに効く。
+
+==============================================================================
+ハイライトグループ					      *bokeh-highlights*
+
+								  *hl-BokehFade*
+BokehFade1 .. BokehFade{bands}
+		フェードの段ごとに 1 つ。段 1 がカーソルに最も近く、`bands` が
+		最も薄い。|bokeh-config-from| から作られ、|ColorScheme| のたび
+		に計算し直される。
+
+		ブレンドでは作れない色にしたい場合は、後から上書きする: >lua
+
+		vim.api.nvim_create_autocmd("ColorScheme", {
+		  callback = function()
+		    vim.api.nvim_set_hl(0, "BokehFade5", { fg = "#2a2f45" })
+		  end,
+		})
+<
+カーソル行には一切触れないので、|hl-CursorLineNr| がそのまま残る。
+
+'termguicolors' が無効のときはブレンドするものが無いので、段は
+|bokeh-config-from| への単なるリンクとして登録され、フェードは邪魔をしない。
+
+==============================================================================
+'relativenumber'					  *bokeh-relativenumber*
+
+'statuscolumn' がカーソル移動で再評価されるのは、'relativenumber' が設定されて
+いる場合だけである (|'statuscolumn'| を参照)。'number' だけを有効にしていると、
+フェードは移動前のカーソル位置を指したままになるので、その場合に限り
+bokeh.nvim が自分で再描画を促す。|bokeh-config-redraw| で制御できる。
+
+`:checkhealth bokeh` では、この点と 'termguicolors'、フェードの段の状態を
+報告する。
+
+==============================================================================
+やらないこと						       *bokeh-non-goals*
+
+- 絶対行番号と相対行番号を並べて表示すること。それには statuscol.nvim か
+  line-numbers.nvim を使うこと。bokeh.nvim は色を付けるだけである。
+- カーソルの上と下でフェードを変えること。|v:relnum| はカーソル行からの距離で
+  あって向きを持たないので、これには描画する行ごとにカーソル位置を引く必要があ
+  る。
+
+vim:tw=78:ts=8:noet:ft=help:norl:

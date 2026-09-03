@@ -1,0 +1,287 @@
+*bokeh.txt*	Depth of field for your line numbers
+
+Author: delphinus License: MIT
+
+==============================================================================
+CONTENTS							*bokeh-contents*
+
+Introduction						|bokeh-introduction|
+Requirements						|bokeh-requirements|
+Installation						|bokeh-installation|
+Usage							|bokeh-usage|
+  Colouring an existing renderer			|bokeh-usage-hl|
+  Rendering the numbers					|bokeh-usage-segment|
+  Standalone						|bokeh-usage-standalone|
+Configuration						|bokeh-config|
+Commands						|bokeh-commands|
+Lua API							|bokeh-api|
+Variables						|bokeh-variables|
+Highlight groups					|bokeh-highlights|
+'relativenumber'					|bokeh-relativenumber|
+Non-goals						|bokeh-non-goals|
+
+==============================================================================
+INTRODUCTION						    *bokeh-introduction*
+
+bokeh.nvim blends line numbers toward the background as their distance from
+the cursor grows, in discrete steps.  The lines you are about to jump to stay
+legible; the rest recedes.
+>
+	  12 │ local color = require "bokeh.color"     ← faded
+	   8 │
+	   4 │ function M.band(relnum)
+	   2 │   if relnum <= 0 then
+	   1 │     return nil
+	 142 │   end                                   ← cursor line
+	   1 │
+	   3 │ end
+<
+That is all it does.  Signs, folds and the layout of the number column stay
+with whoever owns your 'statuscolumn'.
+
+The fade is driven by |v:relnum|, which is the distance from the cursor line.
+It carries no direction, so lines above and below the cursor fade alike.
+
+==============================================================================
+REQUIREMENTS						    *bokeh-requirements*
+
+- Neovim 0.10 or later
+- 'termguicolors', since the fade is computed as 24-bit colour
+- Optionally statuscol.nvim  https://github.com/luukvbaal/statuscol.nvim
+
+==============================================================================
+INSTALLATION						    *bokeh-installation*
+
+With lazy.nvim: >lua
+
+	{ "delphinus/bokeh.nvim", opts = {} }
+<
+==============================================================================
+USAGE								   *bokeh-usage*
+
+Three ways in, in order of how much bokeh.nvim takes over.
+
+------------------------------------------------------------------------------
+Colouring an existing renderer					*bokeh-usage-hl*
+
+|bokeh.hl()| returns nothing but a highlight item.  Put it in front of a
+segment that renders line numbers and keep that renderer's behaviour --
+statuscol.nvim's thousands separator, `relculright`, sign-in-number column and
+so on all keep working. >lua
+
+	local bokeh = require "bokeh"
+	bokeh.setup()
+
+	local builtin = require "statuscol.builtin"
+	require("statuscol").setup {
+	  relculright = true,
+	  segments = {
+	    { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
+	    { text = { bokeh.hl, builtin.lnumfunc }, click = "v:lua.ScLa" },
+	  },
+	}
+<
+------------------------------------------------------------------------------
+Rendering the numbers					   *bokeh-usage-segment*
+
+|bokeh.segment()| is a drop-in statuscol.nvim `text` segment.  It honours
+'number', 'relativenumber' and 'numberwidth' the way the built-in number
+column does, and right-aligns throughout (the equivalent of statuscol.nvim's
+`relculright = true`). >lua
+
+	segments = {
+	  { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
+	  { text = { require("bokeh").segment }, click = "v:lua.ScLa" },
+	}
+<
+------------------------------------------------------------------------------
+Standalone						*bokeh-usage-standalone*
+
+No other plugin involved: bokeh.nvim sets 'statuscolumn' to the fold column,
+the sign column and a faded number column. >lua
+
+	require("bokeh").setup { standalone = true }
+<
+==============================================================================
+CONFIGURATION							  *bokeh-config*
+
+Defaults: >lua
+
+	require("bokeh").setup {
+	  bands = 5,
+	  distance = 12,
+	  amount = 0.7,
+	  curve = "linear",
+	  target = nil,
+	  from = "LineNr",
+	  standalone = false,
+	  enabled = true,
+	  redraw = "auto",
+	}
+<
+							    *bokeh-config-bands*
+bands ~
+		Number of fade steps.  Default: 5.
+
+							 *bokeh-config-distance*
+distance ~
+		Distance from the cursor line at which the deepest band
+		starts.  Everything further away shares that band.
+		Default: 12.
+
+							   *bokeh-config-amount*
+amount ~
+		How far the deepest band is blended toward `target`, from 0
+		(no fade at all) to 1 (fully merged into the target).
+		Default: 0.7.
+
+							    *bokeh-config-curve*
+curve ~
+		How the steps are distributed: "linear", "ease_in",
+		"ease_out", or a function.  "ease_in" keeps lines near the
+		cursor crisp and drops off late; "ease_out" fades hard right
+		next to the cursor.  A function receives `t` running 0..1
+		across the bands and returns the multiplier for `amount`.
+		Default: "linear".
+
+							   *bokeh-config-target*
+target ~
+		Colour to fade toward, as "#rrggbb" or an integer.  When nil,
+		the background of `Normal` is used, falling back to black or
+		white according to 'background' if `Normal` is transparent.
+		Default: nil.
+
+							     *bokeh-config-from*
+from ~
+		Highlight group the fade starts from.  Its other attributes
+		(bold, italic, ...) are carried into every band.
+		Default: "LineNr".
+
+						       *bokeh-config-standalone*
+standalone ~
+		Set 'statuscolumn' ourselves instead of exposing a segment.
+		Default: false.
+
+							  *bokeh-config-enabled*
+enabled ~
+		Whether the fade starts on.  Default: true.
+
+							   *bokeh-config-redraw*
+redraw ~
+		Whether to force a 'statuscolumn' redraw on cursor movement.
+		"auto" does so only when 'relativenumber' is off, which is
+		when Neovim would not redraw by itself; see
+		|bokeh-relativenumber|.  Default: "auto".
+
+==============================================================================
+COMMANDS							*bokeh-commands*
+
+									*:Bokeh*
+:Bokeh [on|off|toggle]
+		Turn the fade on or off.  Without an argument, toggles.
+
+==============================================================================
+LUA API								     *bokeh-api*
+
+								 *bokeh.setup()*
+setup({opts})
+		Initialise the plugin.  Registers the fade highlight groups
+		and keeps them in sync with the colorscheme.  'number' and
+		'relativenumber' are never changed: what the number column
+		shows stays your decision.
+
+								    *bokeh.hl()*
+hl({args})
+		Return the highlight item for the line currently being
+		drawn, for example `"%#BokehFade3#"`.  Empty on the cursor
+		line and whenever the fade is off.  {args} is the argument
+		table statuscol.nvim passes to a segment; omit it to read
+		|v:relnum| and friends directly.
+
+							       *bokeh.segment()*
+segment({args})
+		Render the line number for the line currently being drawn,
+		faded.  See |bokeh-usage-segment|.
+
+							  *bokeh.statuscolumn()*
+statuscolumn()
+		The 'statuscolumn' expression used by |bokeh-config-standalone|.
+
+								  *bokeh.band()*
+band({relnum})
+		Map a distance to a band index, or nil for the cursor line.
+
+								*bokeh.enable()*
+							       *bokeh.disable()*
+								*bokeh.toggle()*
+							    *bokeh.is_enabled()*
+enable() disable() toggle() is_enabled()
+		Turn the fade on, off, or flip it.  `toggle()` returns the
+		state after flipping.
+
+		In standalone mode, switching off restores the
+		'statuscolumn' that was in force before `setup()`.
+		Otherwise the line numbers keep rendering, just with
+		|hl-LineNr| instead of the bands -- bokeh.nvim cannot unhook
+		itself from someone else's statuscolumn.
+
+							    *bokeh.get_config()*
+get_config()
+		Return a copy of the resolved configuration.
+
+==============================================================================
+VARIABLES						       *bokeh-variables*
+
+Checked on every drawn line, so they take effect immediately.
+
+							       *g:bokeh_disable*
+							       *b:bokeh_disable*
+							       *w:bokeh_disable*
+g:bokeh_disable  b:bokeh_disable  w:bokeh_disable
+		When truthy, no fade is applied -- everywhere, in that
+		buffer, or in that window respectively.
+
+==============================================================================
+HIGHLIGHT GROUPS					      *bokeh-highlights*
+
+								  *hl-BokehFade*
+BokehFade1 .. BokehFade{bands}
+		One group per fade step.  Band 1 is nearest the cursor,
+		`bands` is the most faded.  Derived from
+		|bokeh-config-from|, recomputed on every |ColorScheme|.
+
+		Override them after the fact for colours the blend cannot
+		produce: >lua
+
+		vim.api.nvim_create_autocmd("ColorScheme", {
+		  callback = function()
+		    vim.api.nvim_set_hl(0, "BokehFade5", { fg = "#2a2f45" })
+		  end,
+		})
+<
+The cursor line is never touched, so it keeps |hl-CursorLineNr|.
+
+Without 'termguicolors' there is nothing to blend, so the bands are registered
+as plain links to |bokeh-config-from| and the fade stays out of the way.
+
+==============================================================================
+'relativenumber'					  *bokeh-relativenumber*
+
+'statuscolumn' is only re-evaluated on cursor movement when 'relativenumber'
+is set; see |'statuscolumn'|.  With only 'number' on, the fade would keep
+pointing at the line the cursor used to be on, so bokeh.nvim forces the redraw
+itself in exactly that case.  |bokeh-config-redraw| controls this.
+
+`:checkhealth bokeh` reports it along with 'termguicolors' and the state of
+the fade bands.
+
+==============================================================================
+NON-GOALS						       *bokeh-non-goals*
+
+- Rendering absolute and relative numbers side by side.  Use statuscol.nvim or
+  line-numbers.nvim for that; bokeh.nvim only colours.
+- Fading above and below the cursor differently.  |v:relnum| is the distance
+  from the cursor line and carries no direction, so this would need the cursor
+  position on every drawn line.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
