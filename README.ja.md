@@ -125,6 +125,44 @@ require("bokeh").setup {
 それぞれの向きの色を起点にフェードします。カーソル行の取得は描画する 1 行あたり
 約 57 ns なので、画面全体でも 3 µs 程度です。
 
+## 自分でガターを組む
+
+外から使う口は `hl` だけなので、`'statuscolumn'` で書けるものなら何にでも
+フェードを乗せられます。絶対と相対を並べて、向きで塗り分けた例:
+
+![2 列のガター](assets/example.png)
+
+```lua
+local bokeh = require "bokeh"
+
+vim.api.nvim_set_hl(0, "GutterAbove", { fg = "#7b9ac7" })
+vim.api.nvim_set_hl(0, "GutterBelow", { fg = "#6aa781" })
+vim.api.nvim_set_hl(0, "GutterAbsolute", { fg = "#6b7089" })
+
+bokeh.setup { from = { above = "GutterAbove", below = "GutterBelow" } }
+
+function _G.Gutter()
+  local width = #tostring(vim.api.nvim_buf_line_count(0))
+  if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
+
+  local absolute = tostring(vim.v.lnum)
+  absolute = (" "):rep(width - #absolute) .. absolute
+
+  -- カーソル行の相対列は "0" ではなく空にする。
+  local relative = vim.v.relnum == 0 and "" or tostring(vim.v.relnum)
+  relative = (" "):rep(4 - #relative) .. relative
+
+  local absolute_hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
+  return absolute_hl .. absolute .. bokeh.hl() .. relative .. " "
+end
+
+vim.o.statuscolumn = "%!v:lua.Gutter()"
+```
+
+この並べ方は bokeh の機能ではありませんし、そうである必要もありません。`hl()` は
+カーソル行とフェードを切っているときに空文字列を返すので、どちらの場合でも列の
+形は保たれます。全体は [demo/example.lua](demo/example.lua) にあります。
+
 ## 一時的に無効にする
 
 ```vim
@@ -185,9 +223,9 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 
 ## やらないこと
 
-- 絶対行番号と相対行番号を並べて表示すること。それには
-  [line-numbers.nvim](https://github.com/shrynx/line-numbers.nvim) か
-  statuscol.nvim を使ってください。bokeh.nvim は色を付けるだけです。
+- 絶対行番号と相対行番号を並べて表示すること。bokeh.nvim は色を付けるだけです。
+  列は自分で書くか ([自分でガターを組む](#自分でガターを組む) 参照)、
+  [line-numbers.nvim](https://github.com/shrynx/line-numbers.nvim) を使ってください。
 - マーク、折り畳み、サイン、折り返しインジケータ。いずれもフェードではなく
   statuscolumn の担当です。
 

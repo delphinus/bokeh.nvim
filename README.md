@@ -126,6 +126,45 @@ That builds `BokehFadeAbove1` … and `BokehFadeBelow1` … instead of the plain
 `BokehFadeN`, and the fade starts from each direction's own colour. Reading the
 cursor line costs about 57ns per drawn line, so a full screen pays around 3µs.
 
+## Building your own column
+
+`hl` is the whole integration surface, so any column you can write in
+`'statuscolumn'` can carry the fade. Absolute and relative side by side, with
+the fade split by direction:
+
+![a two-column gutter](assets/example.png)
+
+```lua
+local bokeh = require "bokeh"
+
+vim.api.nvim_set_hl(0, "GutterAbove", { fg = "#7b9ac7" })
+vim.api.nvim_set_hl(0, "GutterBelow", { fg = "#6aa781" })
+vim.api.nvim_set_hl(0, "GutterAbsolute", { fg = "#6b7089" })
+
+bokeh.setup { from = { above = "GutterAbove", below = "GutterBelow" } }
+
+function _G.Gutter()
+  local width = #tostring(vim.api.nvim_buf_line_count(0))
+  if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
+
+  local absolute = tostring(vim.v.lnum)
+  absolute = (" "):rep(width - #absolute) .. absolute
+
+  -- Blank rather than "0" on the cursor line.
+  local relative = vim.v.relnum == 0 and "" or tostring(vim.v.relnum)
+  relative = (" "):rep(4 - #relative) .. relative
+
+  local absolute_hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
+  return absolute_hl .. absolute .. bokeh.hl() .. relative .. " "
+end
+
+vim.o.statuscolumn = "%!v:lua.Gutter()"
+```
+
+None of that layout is bokeh's, and none of it needs to be: `hl()` returns an
+empty string on the cursor line and while the fade is off, so the column keeps
+its shape either way. The full file is [demo/example.lua](demo/example.lua).
+
 ## Turning it off
 
 ```vim
@@ -188,9 +227,10 @@ the fade bands.
 
 ## Non-goals
 
-- Rendering absolute and relative numbers side by side. Use
-  [line-numbers.nvim](https://github.com/shrynx/line-numbers.nvim) or
-  statuscol.nvim for that; bokeh.nvim only colours.
+- Rendering absolute and relative numbers side by side. bokeh.nvim only
+  colours — write the column yourself (see
+  [Building your own column](#building-your-own-column)) or use
+  [line-numbers.nvim](https://github.com/shrynx/line-numbers.nvim).
 - Marks, folds, signs, wrapped-line indicators. All of those belong to the
   statuscolumn, not to the fade.
 

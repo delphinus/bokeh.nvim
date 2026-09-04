@@ -20,6 +20,7 @@ relative path.
 | `shot.lua` | The Neovim config the tapes run against |
 | `demo.tape` | The animated GIF: cursor movement, then `:Bokeh off` / `on` |
 | `stills.tape` | The before/after pair, same buffer and cursor position |
+| `example.lua` / `example.tape` | The two-column gutter shown under "Building your own column" |
 
 `shot.lua` loads bokeh.nvim and nothing else, in `standalone` mode with every
 option at its default, so the recordings show what a new user gets rather than

@@ -65,8 +65,13 @@ Three ways in, in order of how much bokeh.nvim takes over.
 ------------------------------------------------------------------------------
 Colouring an existing renderer					*bokeh-usage-hl*
 
-|bokeh.hl()| returns nothing but a highlight item.  Put it in front of a
-segment that renders line numbers and keep that renderer's behaviour --
+|bokeh.hl()| returns nothing but a highlight item, which makes it the whole
+integration surface: any column you can write in 'statuscolumn' can carry the
+fade.  See `demo/example.lua` in the repository for absolute and relative
+numbers side by side with the fade split by direction.
+
+Put it in front of a segment that renders line numbers to keep that
+renderer's behaviour --
 statuscol.nvim's thousands separator, `relculright`, sign-in-number column and
 so on all keep working. >lua
 
