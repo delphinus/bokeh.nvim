@@ -283,10 +283,12 @@ end
 
 ---Render the line number for the line currently being drawn, faded.
 ---
---- Honours |'number'|, |'relativenumber'| and |'numberwidth'| the way the
---- built-in number column does, and right-aligns throughout (the equivalent of
---- statuscol.nvim's `relculright = true`). Use |bokeh.hl()| instead if you need
---- another alignment or statuscol.nvim's `thousands` separator.
+--- Matches the built-in number column cell for cell: |'numberwidth'| counts the
+--- separating space, so the number is right-aligned in one column less than
+--- that, and with 'relativenumber' set the cursor line's absolute number goes
+--- to the left instead. Use |bokeh.hl()| in front of another renderer if you
+--- want a different layout — statuscol.nvim's `relculright` or its `thousands`
+--- separator, say.
 ---@param args? table  statuscol.nvim segment args
 ---@return string
 function M.segment(args)
@@ -294,11 +296,19 @@ function M.segment(args)
   if not (args.nu or args.rnu) then return "" end
   -- Wrapped and virtual lines get the width but not the number, so the text
   -- next to them stays aligned.
-  if args.virtnum ~= 0 then return "%=" end
+  if args.virtnum ~= 0 then return "%= " end
 
   local number = args.rnu and (args.relnum > 0 and args.relnum or (args.nu and args.lnum or 0)) or args.lnum
   local text = tostring(number)
-  local body = "%=" .. (" "):rep(math.max(0, (args.nuw or 4) - #text)) .. text
+  local pad = (" "):rep(math.max(0, (args.nuw or 4) - 1 - #text))
+
+  local body
+  if args.rnu and args.nu and args.relnum == 0 then
+    body = text .. pad .. "%="
+  else
+    body = "%=" .. pad .. text
+  end
+  body = body .. " "
 
   local hl = M.hl(args)
   return hl == "" and body or hl .. body .. "%*"

@@ -84,8 +84,10 @@ bokeh.nvim がどこまで受け持つかで 3 通りある。
 行番号を描かせる					   *bokeh-usage-segment*
 
 |bokeh.segment()| は statuscol.nvim の `text` セグメントとしてそのまま使える。
-'number'、'relativenumber'、'numberwidth' は組み込みの行番号列と同じように扱い、
-常に右揃えにする (statuscol.nvim の `relculright = true` 相当)。 >lua
+組み込みの行番号列と桁単位で一致する。'numberwidth' は区切りの空白を含む幅なの
+で、番号はそれより 1 桁狭い幅に右揃えされ、'relativenumber' 有効時のカーソル行
+の絶対番号は左に寄る。別の並べ方 (statuscol.nvim の `relculright` や桁区切り) が
+要るときは |bokeh.hl()| を他の描画の前に置く。 >lua
 
 	segments = {
 	  { text = { builtin.foldfunc }, click = "v:lua.ScFa" },

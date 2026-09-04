@@ -85,10 +85,12 @@ so on all keep working. >lua
 ------------------------------------------------------------------------------
 Rendering the numbers					   *bokeh-usage-segment*
 
-|bokeh.segment()| is a drop-in statuscol.nvim `text` segment.  It honours
-'number', 'relativenumber' and 'numberwidth' the way the built-in number
-column does, and right-aligns throughout (the equivalent of statuscol.nvim's
-`relculright = true`). >lua
+|bokeh.segment()| is a drop-in statuscol.nvim `text` segment.  It matches the
+built-in number column cell for cell: 'numberwidth' counts the separating
+space, so the number is right-aligned in one column less than that, and with
+'relativenumber' set the cursor line's absolute number goes to the left.  Use
+|bokeh.hl()| in front of another renderer for a different layout, such as
+statuscol.nvim's `relculright` or its `thousands` separator. >lua
 
 	segments = {
 	  { text = { builtin.foldfunc }, click = "v:lua.ScFa" },

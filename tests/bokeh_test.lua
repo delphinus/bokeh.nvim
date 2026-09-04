@@ -52,7 +52,7 @@ test("hl renders nothing before setup", function()
 end)
 
 test("segment still renders the number before setup", function()
-  assert_eq(bokeh.segment(args()), "%=   3", "the column does not go blank")
+  assert_eq(bokeh.segment(args()), "%=  3 ", "the column does not go blank")
 end)
 
 -- ============================================================================
@@ -202,26 +202,30 @@ end)
 -- ============================================================================
 
 test("segment fades the relative number", function()
-  assert_eq(bokeh.segment(args { relnum = 3 }), "%#BokehFade2#%=   3%*", "faded and right-aligned")
+  assert_eq(bokeh.segment(args { relnum = 3 }), "%#BokehFade2#%=  3 %*", "faded and right-aligned")
 end)
 
 test("segment shows the absolute number on the cursor line, unfaded", function()
-  assert_eq(bokeh.segment(args { relnum = 0, lnum = 10 }), "%=  10", "hybrid numbering")
+  -- The built-in column puts it on the left when 'relativenumber' is set.
+  assert_eq(bokeh.segment(args { relnum = 0, lnum = 10 }), "10 %= ", "hybrid numbering")
+  assert_eq(bokeh.segment(args { relnum = 0, lnum = 10, rnu = false }), "%= 10 ", "absolute only stays right")
 end)
 
 test("segment pads to 'numberwidth'", function()
-  assert_eq(bokeh.segment(args { relnum = 0, lnum = 7, nuw = 6 }), "%=     7", "six columns wide")
-  assert_eq(bokeh.segment(args { relnum = 0, lnum = 123456, nuw = 4 }), "%=123456", "a number wider than nuw")
+  -- 'numberwidth' counts the separating space, so the number gets nuw - 1.
+  assert_eq(bokeh.segment(args { relnum = 0, lnum = 7, nuw = 6 }), "7    %= ", "six columns wide")
+  assert_eq(bokeh.segment(args { relnum = 0, lnum = 123456, nuw = 4 }), "123456%= ", "a number wider than nuw")
+  assert_eq(bokeh.segment(args { relnum = 4, lnum = 7, nuw = 6 }), "%#BokehFade2#%=    4 %*", "away from the cursor")
 end)
 
 test("segment follows 'number' and 'relativenumber'", function()
-  assert_eq(bokeh.segment(args { rnu = false, lnum = 42, relnum = 3 }), "%#BokehFade2#%=  42%*", "absolute only")
+  assert_eq(bokeh.segment(args { rnu = false, lnum = 42, relnum = 3 }), "%#BokehFade2#%= 42 %*", "absolute only")
   assert_eq(bokeh.segment(args { nu = false, rnu = false }), "", "both off draws nothing")
 end)
 
 test("segment gives wrapped and virtual lines width but no number", function()
-  assert_eq(bokeh.segment(args { virtnum = 1 }), "%=", "wrapped part of a line")
-  assert_eq(bokeh.segment(args { virtnum = -1 }), "%=", "virtual line")
+  assert_eq(bokeh.segment(args { virtnum = 1 }), "%= ", "wrapped part of a line")
+  assert_eq(bokeh.segment(args { virtnum = -1 }), "%= ", "virtual line")
 end)
 
 -- ============================================================================
@@ -232,7 +236,7 @@ test("disable drops the fade but keeps the numbers", function()
   bokeh.disable()
   assert_eq(bokeh.is_enabled(), false, "reported as off")
   assert_eq(bokeh.hl(args()), "", "no highlight item")
-  assert_eq(bokeh.segment(args { relnum = 3 }), "%=   3", "the number is still drawn")
+  assert_eq(bokeh.segment(args { relnum = 3 }), "%=  3 ", "the number is still drawn")
   bokeh.enable()
   assert_eq(bokeh.is_enabled(), true, "reported as on")
   assert_eq(bokeh.hl(args()), "%#BokehFade2#", "the fade is back")
@@ -270,7 +274,7 @@ test("without 'termguicolors' the bands link to the source group instead", funct
   vim.o.termguicolors = false
   bokeh.setup()
   assert_eq(bokeh.hl(args()), "", "nothing to blend, so nothing is claimed")
-  assert_eq(bokeh.segment(args { relnum = 3 }), "%=   3", "the number still renders")
+  assert_eq(bokeh.segment(args { relnum = 3 }), "%=  3 ", "the number still renders")
   local hl = vim.api.nvim_get_hl(0, { name = "BokehFade1" })
   assert_eq(hl.link, "LineNr", "the band is a plain link")
   vim.o.termguicolors = true

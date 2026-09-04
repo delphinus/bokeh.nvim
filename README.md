@@ -5,19 +5,16 @@ Depth of field for your line numbers.
 Line numbers far from the cursor are blended toward the background in discrete
 steps, so the ones you are about to jump to stay legible and the rest recedes.
 
-```
-  12 │ local color = require "bokeh.color"      ← faded
-   8 │
-   4 │ function M.band(relnum)
-   2 │   if relnum <= 0 then
-   1 │     return nil
- 142 │   end                                    ← cursor line, untouched
-   1 │
-   3 │ end
-```
+![demo](assets/demo.gif)
 
 That is all it does. Signs, folds and the layout of the number column stay with
 whoever owns your `'statuscolumn'`.
+
+The same buffer at the same cursor position, with the fade on and off:
+
+| `:Bokeh on` | `:Bokeh off` |
+|---|---|
+| ![with the fade](assets/fade.png) | ![without it](assets/plain.png) |
 
 [日本語版の README](README.ja.md)
 
@@ -63,9 +60,11 @@ require("statuscol").setup {
 ### 2. Let bokeh.nvim render the numbers
 
 `require("bokeh").segment` is a drop-in statuscol.nvim `text` segment. It
-honours `'number'`, `'relativenumber'` and `'numberwidth'` the way the built-in
-number column does, and right-aligns throughout (the equivalent of
-`relculright = true`).
+matches the built-in number column cell for cell: `'numberwidth'` counts the
+separating space, so the number is right-aligned in one column less than that,
+and with `'relativenumber'` set the cursor line's absolute number goes to the
+left. Use `hl` in front of another renderer if you want a different layout —
+statuscol.nvim's `relculright` or its `thousands` separator, say.
 
 ```lua
 segments = {

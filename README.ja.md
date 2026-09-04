@@ -5,19 +5,16 @@
 カーソル行から遠い行番号ほど段階的に背景へ溶かします。これから飛ぼうとしている
 近くの行はくっきり残り、それ以外は後ろへ退きます。
 
-```
-  12 │ local color = require "bokeh.color"      ← 薄い
-   8 │
-   4 │ function M.band(relnum)
-   2 │   if relnum <= 0 then
-   1 │     return nil
- 142 │   end                                    ← カーソル行、そのまま
-   1 │
-   3 │ end
-```
+![demo](assets/demo.gif)
 
 やるのはこれだけです。サイン、折り畳み、行番号の並べ方は `'statuscolumn'` を
 持っているものに任せます。
+
+同じバッファの同じカーソル位置で、フェードを入れた場合と切った場合:
+
+| `:Bokeh on` | `:Bokeh off` |
+|---|---|
+| ![フェードあり](assets/fade.png) | ![フェード無し](assets/plain.png) |
 
 [English README](README.md)
 
@@ -62,8 +59,11 @@ require("statuscol").setup {
 ### 2. bokeh.nvim に行番号を描かせる
 
 `require("bokeh").segment` は statuscol.nvim の `text` セグメントとしてそのまま
-使えます。`'number'`、`'relativenumber'`、`'numberwidth'` は組み込みの行番号列と
-同じように扱い、常に右揃えにします (`relculright = true` 相当)。
+使えます。組み込みの行番号列と桁単位で一致します。`'numberwidth'` は区切りの
+空白を含む幅なので、番号はそれより 1 桁狭い幅に右揃えされ、`'relativenumber'`
+有効時のカーソル行の絶対番号は左に寄ります。別の並べ方にしたい場合 —
+statuscol.nvim の `relculright` や桁区切りを使いたい場合など — は `hl` を他の
+描画の前に置いてください。
 
 ```lua
 segments = {
