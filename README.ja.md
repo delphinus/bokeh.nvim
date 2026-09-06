@@ -142,6 +142,9 @@ vim.api.nvim_set_hl(0, "GutterAbsolute", { fg = "#6b7089" })
 bokeh.setup { from = { above = "GutterAbove", below = "GutterBelow" } }
 
 function _G.Gutter()
+  -- 番号を出さないと言っているウィンドウでは何も描かない。
+  if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+
   local width = #tostring(vim.api.nvim_buf_line_count(0))
   if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
 
@@ -162,6 +165,13 @@ vim.o.statuscolumn = "%!v:lua.Gutter()"
 この並べ方は bokeh の機能ではありませんし、そうである必要もありません。`hl()` は
 カーソル行とフェードを切っているときに空文字列を返すので、どちらの場合でも列の
 形は保たれます。全体は [demo/example.lua](demo/example.lua) にあります。
+
+`hl()` は色を付けるだけです。そもそも番号を描くかどうかは描画する側に残ります。
+`'number'` と `'relativenumber'` に従うかどうかもそこに含まれます。Neovim は
+ヘルプウィンドウをどちらも無効にして開きますし、quickfix やターミナルの
+ウィンドウで同じことをする ftplugin も多いので、自分で列を書くときは上の例の
+1 行目のような判定を置いてください。`segment()`、単体モード、statuscol.nvim の
+`builtin.lnumfunc` はどれも自前で判定しています。
 
 ## 一時的に無効にする
 

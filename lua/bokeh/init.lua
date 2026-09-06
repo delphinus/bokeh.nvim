@@ -256,8 +256,10 @@ end
 ---Return the highlight item for the line currently being drawn.
 ---
 --- Empty string on the cursor line (leaving |hl-CursorLineNr| alone) and
---- whenever the fade is disabled. Use this to colour a line number renderer you
---- already have: >lua
+--- whenever the fade is disabled. Colour only: |'number'| and
+--- |'relativenumber'| are not consulted, because the renderer in front of this
+--- owns whether a number is drawn at all. Use this to colour a line number
+--- renderer you already have: >lua
 ---
 ---   local bokeh = require "bokeh"
 ---   require("statuscol").setup {

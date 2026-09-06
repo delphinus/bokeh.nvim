@@ -144,6 +144,9 @@ vim.api.nvim_set_hl(0, "GutterAbsolute", { fg = "#6b7089" })
 bokeh.setup { from = { above = "GutterAbove", below = "GutterBelow" } }
 
 function _G.Gutter()
+  -- Nothing at all where the window asked for no numbers.
+  if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+
   local width = #tostring(vim.api.nvim_buf_line_count(0))
   if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
 
@@ -164,6 +167,13 @@ vim.o.statuscolumn = "%!v:lua.Gutter()"
 None of that layout is bokeh's, and none of it needs to be: `hl()` returns an
 empty string on the cursor line and while the fade is off, so the column keeps
 its shape either way. The full file is [demo/example.lua](demo/example.lua).
+
+`hl()` only colours — whether a number is drawn at all stays with your renderer,
+and that includes honouring `'number'` and `'relativenumber'`. Neovim opens help
+windows with both off, and ftplugins commonly do the same for quickfix and
+terminal windows, so a hand-written column wants the guard on the first line
+above. `segment()`, standalone mode and statuscol.nvim's `builtin.lnumfunc` all
+check for you.
 
 ## Turning it off
 

@@ -83,14 +83,27 @@ bokeh.nvim がどこまで受け持つかで 3 通りある。
 	  },
 	}
 <
+|bokeh.hl()| は色を付けるだけで、そもそも番号を描くかどうかは前に置いた描画側に
+残る。'number' と 'relativenumber' に従うかどうかもそこに含まれる。Neovim は
+ヘルプウィンドウをどちらも無効にして開くし、quickfix やターミナルのウィンドウ
+で同じことをする ftplugin も多い。上の `builtin.lnumfunc` は既に見ているし、
+|bokeh.segment()| と |bokeh-usage-standalone| も見ている。自分で列を書くときは
+自分で見ること。 >lua
+
+	if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+<
+'statuscolumn' は描画するウィンドウをカレントウィンドウとして評価されるので、
+素の `vim.wo` で読めば正しいウィンドウを指す。
+
 ------------------------------------------------------------------------------
 行番号を描かせる					   *bokeh-usage-segment*
 
 |bokeh.segment()| は statuscol.nvim の `text` セグメントとしてそのまま使える。
 組み込みの行番号列と桁単位で一致する。'numberwidth' は区切りの空白を含む幅なの
 で、番号はそれより 1 桁狭い幅に右揃えされ、'relativenumber' 有効時のカーソル行
-の絶対番号は左に寄る。別の並べ方 (statuscol.nvim の `relculright` や桁区切り) が
-要るときは |bokeh.hl()| を他の描画の前に置く。 >lua
+の絶対番号は左に寄る。どちらのオプションも無効なウィンドウでは何も描かない。
+別の並べ方 (statuscol.nvim の `relculright` や桁区切り) が要るときは
+|bokeh.hl()| を他の描画の前に置く。 >lua
 
 	segments = {
 	  { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
@@ -200,6 +213,10 @@ hl({args})
 		返す。カーソル行と、フェードが無効なときは空文字列を返す。
 		{args} は statuscol.nvim がセグメントに渡す引数のテーブル。
 		省略すると |v:relnum| などを直接読む。
+
+		色を付けるだけで、'number' と 'relativenumber' は見ない。
+		そもそも番号を描くかどうかは、前に置いた描画側が持つ。
+		|bokeh-usage-hl| を参照。
 
 							       *bokeh.segment()*
 segment({args})

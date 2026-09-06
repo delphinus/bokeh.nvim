@@ -87,15 +87,28 @@ so on all keep working. >lua
 	  },
 	}
 <
+|bokeh.hl()| only colours; whether a number is drawn at all stays with the
+renderer in front of it, and that includes honouring 'number' and
+'relativenumber'.  Neovim opens help windows with both off, and ftplugins
+commonly do the same for quickfix and terminal windows.  `builtin.lnumfunc`
+above already checks, as do |bokeh.segment()| and |bokeh-usage-standalone|;
+a hand-written column has to check for itself: >lua
+
+	if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+<
+'statuscolumn' is evaluated with the window being drawn as the current window,
+so the plain `vim.wo` accessors already describe the right window.
+
 ------------------------------------------------------------------------------
 Rendering the numbers					   *bokeh-usage-segment*
 
 |bokeh.segment()| is a drop-in statuscol.nvim `text` segment.  It matches the
 built-in number column cell for cell: 'numberwidth' counts the separating
 space, so the number is right-aligned in one column less than that, and with
-'relativenumber' set the cursor line's absolute number goes to the left.  Use
-|bokeh.hl()| in front of another renderer for a different layout, such as
-statuscol.nvim's `relculright` or its `thousands` separator. >lua
+'relativenumber' set the cursor line's absolute number goes to the left.
+Nothing is drawn where both options are off.  Use |bokeh.hl()| in front of
+another renderer for a different layout, such as statuscol.nvim's
+`relculright` or its `thousands` separator. >lua
 
 	segments = {
 	  { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
@@ -213,6 +226,10 @@ hl({args})
 		line and whenever the fade is off.  {args} is the argument
 		table statuscol.nvim passes to a segment; omit it to read
 		|v:relnum| and friends directly.
+
+		Colour only: 'number' and 'relativenumber' are not
+		consulted, since the renderer in front of it owns whether a
+		number is drawn at all.  See |bokeh-usage-hl|.
 
 							       *bokeh.segment()*
 segment({args})

@@ -45,6 +45,12 @@ bokeh.setup {
 }
 
 function _G.Gutter()
+  -- Whether a number is drawn at all is the renderer's call, not bokeh's.
+  -- Neovim opens help windows with 'number' and 'relativenumber' both off, and
+  -- ftplugins commonly do the same for quickfix and terminal windows, so fold
+  -- the column away there instead of drawing numbers nobody asked for.
+  if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+
   local width = #tostring(vim.api.nvim_buf_line_count(0))
   if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
 
