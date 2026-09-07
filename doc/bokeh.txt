@@ -99,6 +99,13 @@ a hand-written column has to check for itself: >lua
 'statuscolumn' is evaluated with the window being drawn as the current window,
 so the plain `vim.wo` accessors already describe the right window.
 
+That guard is the floor, not the whole job.  The two options are independent
+switches: 'number' alone means absolute numbers, 'relativenumber' alone means
+distances with "0" on the cursor line.  A column that only asks whether either
+one is on keeps drawing all of itself, which makes `:set nornu` look like it
+does nothing.  Fold each part of the column away with the option that owns it;
+`demo/example.lua` in the repository does it that way.
+
 ------------------------------------------------------------------------------
 Rendering the numbers					   *bokeh-usage-segment*
 

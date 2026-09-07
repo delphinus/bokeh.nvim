@@ -144,21 +144,31 @@ vim.api.nvim_set_hl(0, "GutterAbsolute", { fg = "#6b7089" })
 bokeh.setup { from = { above = "GutterAbove", below = "GutterBelow" } }
 
 function _G.Gutter()
-  -- Nothing at all where the window asked for no numbers.
-  if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+  -- Each option folds its own column, and with both off there is nothing left.
+  local nu, rnu = vim.wo.number, vim.wo.relativenumber
+  if not (nu or rnu) then return "" end
 
-  local width = #tostring(vim.api.nvim_buf_line_count(0))
-  if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
+  local absolute_width = nu and #tostring(vim.api.nvim_buf_line_count(0)) or 0
+  local relative_width = rnu and 4 or 0
+  if vim.v.virtnum ~= 0 then return (" "):rep(absolute_width + relative_width + 1) end
 
-  local absolute = tostring(vim.v.lnum)
-  absolute = (" "):rep(width - #absolute) .. absolute
+  local column = ""
 
-  -- Blank rather than "0" on the cursor line.
-  local relative = vim.v.relnum == 0 and "" or tostring(vim.v.relnum)
-  relative = (" "):rep(4 - #relative) .. relative
+  if nu then
+    local absolute = tostring(vim.v.lnum)
+    local hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
+    column = hl .. (" "):rep(absolute_width - #absolute) .. absolute
+  end
 
-  local absolute_hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
-  return absolute_hl .. absolute .. bokeh.hl() .. relative .. " "
+  if rnu then
+    -- Blank rather than "0" on the cursor line, unless it is the only number left.
+    local relative = vim.v.relnum > 0 and tostring(vim.v.relnum) or (nu and "" or "0")
+    local hl = bokeh.hl()
+    if hl == "" and vim.v.relnum == 0 then hl = "%#CursorLineNr#" end
+    column = column .. hl .. (" "):rep(relative_width - #relative) .. relative
+  end
+
+  return column .. " "
 end
 
 vim.o.statuscolumn = "%!v:lua.Gutter()"
@@ -171,9 +181,16 @@ its shape either way. The full file is [demo/example.lua](demo/example.lua).
 `hl()` only colours — whether a number is drawn at all stays with your renderer,
 and that includes honouring `'number'` and `'relativenumber'`. Neovim opens help
 windows with both off, and ftplugins commonly do the same for quickfix and
-terminal windows, so a hand-written column wants the guard on the first line
-above. `segment()`, standalone mode and statuscol.nvim's `builtin.lnumfunc` all
-check for you.
+terminal windows. `segment()`, standalone mode and statuscol.nvim's
+`builtin.lnumfunc` all check for you; a hand-written column has to check for
+itself.
+
+Check them **one at a time**, not as a single `or`. The built-in number column
+treats them as two independent switches — `'number'` alone shows absolute
+numbers, `'relativenumber'` alone shows distances with `0` on the cursor line —
+so a column that only asks "is either one on?" will keep drawing both of its
+own columns and make `:set nornu` look like it does nothing. Fold each column
+away with the option that owns it, as above.
 
 ## Turning it off
 

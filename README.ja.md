@@ -142,21 +142,32 @@ vim.api.nvim_set_hl(0, "GutterAbsolute", { fg = "#6b7089" })
 bokeh.setup { from = { above = "GutterAbove", below = "GutterBelow" } }
 
 function _G.Gutter()
-  -- 番号を出さないと言っているウィンドウでは何も描かない。
-  if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+  -- どちらのオプションもそれぞれの列を畳む。両方無効なら何も描かない。
+  local nu, rnu = vim.wo.number, vim.wo.relativenumber
+  if not (nu or rnu) then return "" end
 
-  local width = #tostring(vim.api.nvim_buf_line_count(0))
-  if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
+  local absolute_width = nu and #tostring(vim.api.nvim_buf_line_count(0)) or 0
+  local relative_width = rnu and 4 or 0
+  if vim.v.virtnum ~= 0 then return (" "):rep(absolute_width + relative_width + 1) end
 
-  local absolute = tostring(vim.v.lnum)
-  absolute = (" "):rep(width - #absolute) .. absolute
+  local column = ""
 
-  -- カーソル行の相対列は "0" ではなく空にする。
-  local relative = vim.v.relnum == 0 and "" or tostring(vim.v.relnum)
-  relative = (" "):rep(4 - #relative) .. relative
+  if nu then
+    local absolute = tostring(vim.v.lnum)
+    local hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
+    column = hl .. (" "):rep(absolute_width - #absolute) .. absolute
+  end
 
-  local absolute_hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
-  return absolute_hl .. absolute .. bokeh.hl() .. relative .. " "
+  if rnu then
+    -- カーソル行の相対列は "0" ではなく空にする。ただし絶対列が畳まれていて
+    -- 番号がここにしか無いときは "0" を出す。
+    local relative = vim.v.relnum > 0 and tostring(vim.v.relnum) or (nu and "" or "0")
+    local hl = bokeh.hl()
+    if hl == "" and vim.v.relnum == 0 then hl = "%#CursorLineNr#" end
+    column = column .. hl .. (" "):rep(relative_width - #relative) .. relative
+  end
+
+  return column .. " "
 end
 
 vim.o.statuscolumn = "%!v:lua.Gutter()"
@@ -169,9 +180,16 @@ vim.o.statuscolumn = "%!v:lua.Gutter()"
 `hl()` は色を付けるだけです。そもそも番号を描くかどうかは描画する側に残ります。
 `'number'` と `'relativenumber'` に従うかどうかもそこに含まれます。Neovim は
 ヘルプウィンドウをどちらも無効にして開きますし、quickfix やターミナルの
-ウィンドウで同じことをする ftplugin も多いので、自分で列を書くときは上の例の
-1 行目のような判定を置いてください。`segment()`、単体モード、statuscol.nvim の
-`builtin.lnumfunc` はどれも自前で判定しています。
+ウィンドウで同じことをする ftplugin も多いです。`segment()`、単体モード、
+statuscol.nvim の `builtin.lnumfunc` はどれも自前で判定しているので、自分で列を
+書くときだけ自分で判定することになります。
+
+**2 つをまとめて `or` で見ないでください。** 組み込みの行番号列はこの 2 つを
+独立したスイッチとして扱います (`'number'` だけなら絶対行番号、
+`'relativenumber'` だけならカーソル行が `0` の相対行番号)。「どちらかが有効か」
+だけを見る列は、片方を切っても自前の 2 列を描き続けるので、`:set nornu` が
+効いていないように見えます。上の例のように、列ごとにそれを持つオプションで
+畳んでください。
 
 ## 一時的に無効にする
 

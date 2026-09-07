@@ -3,9 +3,9 @@
 --   nvim -u demo/example.lua lua/bokeh/init.lua
 --
 -- Absolute and relative numbers side by side, with the fade split by
--- direction. None of that layout is bokeh's — the column below is twenty lines
--- of plain 'statuscolumn' — but every colour on the relative side is, and it
--- keeps working when the fade is switched off.
+-- direction. None of that layout is bokeh's — the column below is a page of
+-- plain 'statuscolumn' — but every colour on the relative side is, and it keeps
+-- working when the fade is switched off.
 
 local root = vim.fn.fnamemodify(vim.fn.resolve(debug.getinfo(1, "S").source:sub(2)), ":p:h:h")
 vim.opt.runtimepath:prepend(root)
@@ -45,26 +45,38 @@ bokeh.setup {
 }
 
 function _G.Gutter()
-  -- Whether a number is drawn at all is the renderer's call, not bokeh's.
+  -- Whether a number is drawn at all is the renderer's call, not bokeh's, and
+  -- each option folds its own column, the way the built-in number column does.
   -- Neovim opens help windows with 'number' and 'relativenumber' both off, and
-  -- ftplugins commonly do the same for quickfix and terminal windows, so fold
-  -- the column away there instead of drawing numbers nobody asked for.
-  if not (vim.wo.number or vim.wo.relativenumber) then return "" end
+  -- ftplugins commonly do the same for quickfix and terminal windows.
+  local nu, rnu = vim.wo.number, vim.wo.relativenumber
+  if not (nu or rnu) then return "" end
 
-  local width = #tostring(vim.api.nvim_buf_line_count(0))
-  if vim.v.virtnum ~= 0 then return (" "):rep(width + 5) end
+  local absolute_width = nu and #tostring(vim.api.nvim_buf_line_count(0)) or 0
+  local relative_width = rnu and 4 or 0
+  if vim.v.virtnum ~= 0 then return (" "):rep(absolute_width + relative_width + 1) end
 
-  local absolute = tostring(vim.v.lnum)
-  absolute = (" "):rep(width - #absolute) .. absolute
+  local column = ""
 
-  -- Blank rather than "0" on the cursor line.
-  local relative = vim.v.relnum == 0 and "" or tostring(vim.v.relnum)
-  relative = (" "):rep(4 - #relative) .. relative
+  if nu then
+    local absolute = tostring(vim.v.lnum)
+    local hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
+    column = hl .. (" "):rep(absolute_width - #absolute) .. absolute
+  end
 
-  local absolute_hl = vim.v.relnum == 0 and "%#CursorLineNr#" or "%#GutterAbsolute#"
-  -- bokeh returns "" on the cursor line and while the fade is off, which falls
-  -- through to whatever highlight is already in effect.
-  return absolute_hl .. absolute .. bokeh.hl() .. relative .. " "
+  if rnu then
+    -- Blank rather than "0" on the cursor line — unless the absolute column is
+    -- folded away, where "0" is the only number left to mark it with.
+    local relative = vim.v.relnum > 0 and tostring(vim.v.relnum) or (nu and "" or "0")
+    -- bokeh returns "" on the cursor line and while the fade is off, which
+    -- falls through to whatever highlight is already in effect — the absolute
+    -- column's, or CursorLineNr when there is no absolute column.
+    local hl = bokeh.hl()
+    if hl == "" and vim.v.relnum == 0 then hl = "%#CursorLineNr#" end
+    column = column .. hl .. (" "):rep(relative_width - #relative) .. relative
+  end
+
+  return column .. " "
 end
 
 vim.o.statuscolumn = "%!v:lua.Gutter()"
